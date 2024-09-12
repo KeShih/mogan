@@ -12,11 +12,18 @@
 #include "Freetype/free_type.hpp"
 #include "Freetype/tt_face.hpp"
 #include "Freetype/tt_file.hpp"
+#include "Freetype/tt_tools.hpp"
 #include "analyze.hpp"
+#include "bitmap_font.hpp"
 #include "converter.hpp"
 #include "cork.hpp"
 #include "font.hpp"
+#include "freetype/config/integer-types.h"
+#include "iterator.hpp"
+#include "minmax.hpp"
+#include "observer.hpp"
 
+#include <climits>
 #include <lolly/data/numeral.hpp>
 #include <lolly/data/unicode.hpp>
 
@@ -140,6 +147,8 @@ struct unicode_font_rep : font_rep {
 
   hashmap<string, int> native; // additional native (non unicode) characters
 
+  tt_face mathface;
+
   unicode_font_rep (string name, string family, int size, int hdpi, int vdpi);
   void tex_gyre_operators ();
 
@@ -164,6 +173,12 @@ struct unicode_font_rep : font_rep {
   SI           get_rsub_correction (string s);
   SI           get_rsup_correction (string s);
   SI           get_wide_correction (string s, int mode);
+  bool         get_ot_italic_correction (string s, bool left, SI& right);
+  bool         get_ot_kerning (string s, array<SI> height, bool top, bool left,
+                               SI& kerning);
+  SI           design_unit_to_metric (int du);
+  int          metric_to_design_unit (SI m);
+  unsigned int get_glyphID (string s);
 };
 
 /******************************************************************************
@@ -173,7 +188,7 @@ struct unicode_font_rep : font_rep {
 unicode_font_rep::unicode_font_rep (string name, string family2, int size2,
                                     int hdpi2, int vdpi2)
     : font_rep (name), family (family2), hdpi (hdpi2), vdpi (vdpi2), ligs (0),
-      native (0) {
+      native (0), mathface (nullptr) {
   type= FONT_TYPE_UNICODE;
   size= size2;
   fnm = tt_font_metric (family, size, std_dpi, (std_dpi * vdpi) / hdpi);
@@ -428,6 +443,14 @@ unicode_font_rep::unicode_font_rep (string name, string family2, int size2,
       rsub_correct = rsub_fira_italic_table ();
       rsup_correct = rsup_fira_italic_table ();
       above_correct= above_fira_italic_table ();
+    }
+  }
+  else {
+    // try to get OpenType math table
+    tt_face mathface= tt_face (family);
+    if (!is_nil (mathface->mathtable)) {
+      this->mathface= mathface;
+      math_type     = MATH_TYPE_OPENTYPE;
     }
   }
 }
@@ -886,6 +909,11 @@ unicode_font_rep::get_right_slope (string s) {
 
 SI
 unicode_font_rep::get_left_correction (string s) {
+  if (math_type == MATH_TYPE_OPENTYPE) {
+    SI r= 0;
+    if (s != "<int>" && get_ot_italic_correction (s, true, r)) return -r;
+    return 0;
+  }
   metric ex;
   get_extents (s, ex);
   if (math_type == MATH_TYPE_TEX_GYRE && is_integral (s))
@@ -896,6 +924,11 @@ unicode_font_rep::get_left_correction (string s) {
 
 SI
 unicode_font_rep::get_right_correction (string s) {
+  if (math_type == MATH_TYPE_OPENTYPE) {
+    SI r= 0;
+    get_ot_italic_correction (s, false, r);
+    return r;
+  }
   metric ex;
   get_extents (s, ex);
   if (math_type == MATH_TYPE_TEX_GYRE && is_integral (s))
@@ -928,6 +961,21 @@ unicode_font_rep::get_lsup_correction (string s) {
 
 SI
 unicode_font_rep::get_rsub_correction (string s) {
+  // FIXME: logic is wrong
+  if (math_type == MATH_TYPE_OPENTYPE) {
+    SI r= 0;
+    // for integral signs
+    if ((s == "<int>" || is_integral (s) || is_alt_integral (s)) &&
+        get_ot_italic_correction (s, false, r))
+      return -2 * r / 3;
+
+    // height is wrong
+    array<SI> h;
+    h << ysub_lo_base;
+    h << (int) mathface->mathtable->constants_table[subscriptTopMax];
+    if (get_ot_kerning (s, h, false, false, r)) return r;
+    return 0;
+  }
   SI r= global_rsub_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
     ;
@@ -942,6 +990,21 @@ SI
 unicode_font_rep::get_rsup_correction (string s) {
   // cout << "Check " << s << ", " << rsup_correct[s] << ", " << this->res_name
   // << LF;
+  // FIXME: logic is wrong
+  if (math_type == MATH_TYPE_OPENTYPE) {
+    SI r= 0;
+
+    if (get_ot_italic_correction (s, false, r)) {
+      if (s == "<int>" && is_integral (s) || is_alt_integral (s)) return r / 3;
+      else return r;
+    }
+
+    array<SI> h;
+    h << ysup_lo_base;
+    h << (int) mathface->mathtable->constants_table[superscriptBottomMin];
+    if (get_ot_kerning (s, h, true, false, r)) return r;
+    return 0;
+  }
   SI r= get_right_correction (s) + global_rsup_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
     ;
@@ -978,4 +1041,127 @@ unicode_font (string family, int size, int hdpi, int vdpi) {
 font
 unicode_font (string family, int size, int dpi) {
   return unicode_font (family, size, dpi, dpi);
+}
+
+/******************************************************************************
+ * OpenType
+ ******************************************************************************/
+
+inline SI
+unicode_font_rep::design_unit_to_metric (int du) {
+  // use 'm' as a reference character
+  static int units_of_m= 0;
+  static SI  em        = 0;
+  if (units_of_m == 0) {
+    // get the design units of the width of 'm'
+    FT_UInt glyph_index= FT_Get_Char_Index (mathface->ft_face, 'm');
+    FT_Load_Glyph (mathface->ft_face, glyph_index, FT_LOAD_NO_SCALE);
+    units_of_m= mathface->ft_face->glyph->metrics.horiAdvance;
+
+    // get the width of the character 'm'
+    metric ex;
+    get_extents ("m", ex);
+    em= ex->x2 - ex->x1;
+  }
+  return (SI) ((du * em) / units_of_m);
+}
+
+inline int
+unicode_font_rep::metric_to_design_unit (SI m) {
+  static int units_of_m= 0;
+  static SI  em        = 0;
+  if (units_of_m == 0) {
+    // get the units of the character 'm'
+    FT_UInt glyph_index= FT_Get_Char_Index (mathface->ft_face, 'm');
+    FT_Load_Glyph (mathface->ft_face, glyph_index, FT_LOAD_NO_SCALE);
+    units_of_m= mathface->ft_face->glyph->metrics.horiAdvance;
+
+    // get the width of the character 'm'
+    metric ex;
+    get_extents ("m", ex);
+    em= ex->x2 - ex->x1;
+  }
+  return (int) ((m * units_of_m) / em);
+}
+
+inline int
+decode_index (FT_Face face, int i) {
+  if (i < 0xc000000) return ft_get_char_index (face, i);
+  return i - 0xc000000;
+}
+
+unsigned int
+unicode_font_rep::get_glyphID (string s) {
+  font_metric fm;
+  font_glyphs fg;
+  int         index= index_glyph (s, fm, fg);
+  return decode_index (mathface->ft_face, index);
+}
+
+bool
+unicode_font_rep::get_ot_italic_correction (string s, bool left, SI& r) {
+  if (math_type != MATH_TYPE_OPENTYPE || N (s) == 0) return false;
+  auto italics_correction= mathface->mathtable->italics_correction;
+  cout << "Checking italic correction for " << s << LF;
+  int start= 0, end= N (s);
+  if (left) {
+    end= start;
+    tm_char_forwards (s, end);
+  }
+  else {
+    start= end;
+    tm_char_backwards (s, start);
+  }
+  string ss= s (start, end);
+
+  unsigned int glyphID= get_glyphID (ss);
+
+  if (italics_correction->contains (glyphID)) {
+    int correction= italics_correction[glyphID].value;
+
+    r= design_unit_to_metric (correction);
+    cout << "Italic correction for " << s << " is " << correction << " -> " << r
+         << "," << wfn << "," << wpt << LF;
+    return true;
+  }
+  return false;
+}
+
+bool
+unicode_font_rep::get_ot_kerning (string s, array<SI> heights, bool top,
+                                  bool left, SI& kerning) {
+  if (math_type != MATH_TYPE_OPENTYPE || N (s) == 0 || N (heights) == 0)
+    return false;
+  int start= 0, end= N (s);
+  if (left) {
+    end= start;
+    tm_char_forwards (s, end);
+  }
+  else {
+    start= end;
+    tm_char_backwards (s, start);
+  }
+  string ss= s (start, end);
+
+  unsigned int glyphID= get_glyphID (ss);
+
+  if (!mathface->mathtable->has_kerning (glyphID, top, left)) return false;
+
+  array<int> kerning_units;
+
+  for (SI h : heights)
+    kerning_units << mathface->mathtable->get_kerning (
+        glyphID, metric_to_design_unit (h), top, left);
+
+  // pick one with the smallest height (absolute value)
+  int kerning_unit= INT_MAX;
+  for (int ku : kerning_units)
+    if (abs (ku) < abs (kerning_unit)) kerning_unit= ku;
+
+  kerning= design_unit_to_metric (kerning_unit);
+
+  cout << "Kerning for " << ss << " with height: " << kerning_units << " -> "
+       << kerning << LF;
+
+  return true;
 }

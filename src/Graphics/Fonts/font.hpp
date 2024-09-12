@@ -34,6 +34,7 @@ struct font_glyphs;
 #define MATH_TYPE_NORMAL 0
 #define MATH_TYPE_STIX 1
 #define MATH_TYPE_TEX_GYRE 2
+#define MATH_TYPE_OPENTYPE 3
 
 #define START_OF_LINE 1
 #define END_OF_LINE 2
@@ -52,7 +53,7 @@ struct font_glyphs;
 
 struct font_rep : rep<font> {
   int    type;         // font type
-  int    math_type;    // For TeX Gyre math fonts and Stix
+  int    math_type;    // For TeX Gyre math fonts and Stix and OpenType
   SI     size;         // requested size
   SI     design_size;  // design size in points/256
   SI     display_size; // display size in points/PIXEL
