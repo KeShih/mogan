@@ -29,8 +29,20 @@ function using_pacman ()
 end
 
 function add_requires_of_mogan()
+    tbox_configs = {hash=true, ["force-utf8"]=true, charset=true}
+    add_requires("tbox " .. TBOX_VERSION, {system=false, configs=tbox_configs})
+
     -- package: s7
     add_requires("s7 "..S7_VERSION, {system=false})
+    
+    -- package: tree-sitter
+    add_requires("tree-sitter "..TREESITTER_VERSION, {system=false})
+
+    -- package: tree-sitter-cpp
+    add_requires("tree-sitter-cpp "..TREESITTER_CPP_VERSION, {configs = {shared = false}, system=false})
+
+    -- package: tree-sitter-scheme
+    add_requires("tree-sitter-scheme "..TREESITTER_SCHEME_VERSION, {configs = {shared = false}, system=false})
 
     -- package: qt6widgets
     if is_plat("mingw") or is_plat("windows") then

@@ -26,6 +26,14 @@
     (when (!= new old)
       (notify-restart))))
 
+(define (on-buffer-management-changed pretty-val)
+  (let ((can-use-tabbar? (== pretty-val "Multiple documents share window")))
+    (begin
+      (set-boolean-preference "tab bar" can-use-tabbar?)
+      (show-icon-bar 4 can-use-tabbar?)
+      (set-pretty-preference "buffer management" pretty-val)
+    )))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Appearance preferences
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -92,7 +100,7 @@
             (get-pretty-preference "detailed menus")
             "18em"))
     (item (text "Buffer management:")
-      (enum (set-pretty-preference "buffer management" answer)
+      (enum (on-buffer-management-changed answer)
             '("Documents in separate windows"
               "Multiple documents share window")
             (get-pretty-preference "buffer management")
@@ -778,6 +786,9 @@
       (meti (hlist // (text "Program bracket selections"))
         (toggle (set-boolean-preference "prog:select brackets" answer)
                 (get-boolean-preference "prog:select brackets")))
+      (meti (hlist // (text "AST syntax highlighting"))
+        (toggle (set-boolean-preference "ast-syntax-highlighting" answer)
+                (get-boolean-preference "ast-syntax-highlighting")))
       (meti (hlist // (text "Case-insensitive search"))
         (toggle (set-boolean-preference "case-insensitive-match" answer)
                 (get-boolean-preference "case-insensitive-match")))

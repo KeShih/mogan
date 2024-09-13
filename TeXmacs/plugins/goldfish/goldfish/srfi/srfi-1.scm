@@ -12,6 +12,7 @@
 ;;; Follow the same License as the original one
 
 (define-library (srfi srfi-1)
+(import (liii error))
 (export
   circular-list iota circular-list? null-list?
   first second third fourth fifth
@@ -19,7 +20,7 @@
   take drop take-right drop-right count fold fold-right
   reduce reduce-right filter partition remove find
   delete delete-duplicates
-  take-while drop-while
+  take-while drop-while list-index any every
   last-pair last)
 (begin
 
@@ -30,10 +31,11 @@
       (set-cdr! (list-tail lst (- (length lst) 1)) lst))))
 
 ; 0 clause BSD, from S7 repo stuff.scm
-(define* (iota n (start 0) (incr 1)) 
-  (if (or (not (integer? n)) (< n 0))
-    (error 'wrong-type-arg
-           "iota length ~A should be a non-negative integer" n))
+(define* (iota n (start 0) (incr 1))
+  (when (not (integer? n))
+    (type-error "iota: n must be a integer"))
+  (when (< n 0)
+    (value-error "iota: n must be postive but received ~d" n))
   (let ((lst (make-list n)))
     (do ((p lst (cdr p))
          (i start (+ i incr)))
@@ -109,6 +111,8 @@
         (lp (cdr lis) (if (pred (car lis)) (+ i 1) i)))))
 
 (define (fold f initial l)
+  (when (not (procedure? f))
+    (error 'type-error "The first param must be a procedure"))
   (if (null? l)
       initial
       (fold f
@@ -176,6 +180,24 @@
           (drop-while pred (cdr l))
           l)))
 
+(define (list-index pred l)
+    (let loop ((index 0) (l l))
+      (if (null? l)
+          #f
+          (if (pred (car l))
+              index
+              (loop (+ index 1) (cdr l))))))
+
+(define (any pred? l)
+  (cond ((null? l) #f)
+        ((pred? (car l)) #t)
+        (else (any pred? (cdr l)))))
+
+(define (every pred? l)
+  (cond ((null? l) #t)
+        ((not (pred? (car l))) #f)
+        (else (every pred? (cdr l)))))
+
 (define (%extract-maybe-equal maybe-equal)
   (let ((my-equal (if (null-list? maybe-equal)
                       =
@@ -210,3 +232,4 @@
 
 ) ; end of begin
 ) ; end of define-library
+

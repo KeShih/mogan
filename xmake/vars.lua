@@ -11,7 +11,7 @@
 -- in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>.
 
 TEXMACS_VERSION = "2.1.2"
-XMACS_VERSION="1.2.8-rc3"
+XMACS_VERSION="1.2.9.2-rc3"
 CONFIG_USER = "XmacsLabs"
 DEVEL_VERSION = TEXMACS_VERSION
 DEVEL_RELEASE = 1
@@ -19,10 +19,14 @@ STABLE_VERSION = TEXMACS_VERSION
 STABLE_RELEASE = 1
 
 -- XmacsLabs dependencies
+TBOX_VERSION = "1.7.5"
 LOLLY_VERSION = "1.4.26"
 
 -- Third-party dependencies
-S7_VERSION = "20240702"
+S7_VERSION = "20240816"
+TREESITTER_VERSION = "0.22.6"
+TREESITTER_CPP_VERSION = "0.22.2"
+TREESITTER_SCHEME_VERSION = "0.6.2"
 QT6_VERSION = "6.5.3"
 QTIFW_VERSION = "4.6.0"
 TBOX_VERSION = "1.7.5"
@@ -101,6 +105,7 @@ libmogan_headers = {
     "$(projectdir)/src/Typeset/Page",
     "$(buildir)/glue",
     "$(projectdir)/TeXmacs/include",
+    "$(projectdir)/TeXmacs/plugins/goldfish/src",
 }
 
 libmogan_srcs = {
@@ -135,6 +140,10 @@ plugin_macos_srcs = {
     "$(projectdir)/src/Plugins/MacOS/mac_spellservice.mm",
     "$(projectdir)/src/Plugins/MacOS/mac_utilities.mm",
     "$(projectdir)/src/Plugins/MacOS/mac_app.mm"
+}
+plugin_treesitter_srcs = {
+    "$(projectdir)/src/Plugins/Treesitter/**.cpp",
+    "$(projectdir)/src/Plugins/Treesitter/**.hpp",
 }
 plugin_pdf_srcs = { "$(projectdir)/src/Plugins/Pdf/**.cpp" }
 plugin_xml_srcs = { "$(projectdir)/src/Plugins/Xml/**.cpp" }
