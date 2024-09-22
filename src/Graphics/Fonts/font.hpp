@@ -103,6 +103,8 @@ struct font_rep : rep<font> {
   font_rep (string name, font fn);
   void copy_math_pars (font fn);
 
+  virtual int script (int level);
+
   virtual bool supports (string c)               = 0;
   virtual void get_extents (string s, metric& ex)= 0;
   virtual void get_extents (string s, metric& ex, bool ligf);

@@ -561,6 +561,11 @@ script (int sz, int level) {
   return sz;
 }
 
+int 
+font_rep::script (int level) {
+  return ::script (size, level);
+}
+
 string
 default_chinese_font_name () {
   if (has_user_preference ("default chinese font name")) {

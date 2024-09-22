@@ -179,6 +179,7 @@ struct unicode_font_rep : font_rep {
   SI           design_unit_to_metric (int du);
   int          metric_to_design_unit (SI m);
   unsigned int get_glyphID (string s);
+  int          script (int) override;
 };
 
 /******************************************************************************
@@ -910,8 +911,11 @@ unicode_font_rep::get_right_slope (string s) {
 SI
 unicode_font_rep::get_left_correction (string s) {
   if (math_type == MATH_TYPE_OPENTYPE) {
-    SI r= 0;
-    if (s != "<int>" && get_ot_italic_correction (s, true, r)) return -r;
+    // SI r= 0;
+    // if (get_ot_italic_correction (s, true, r)) {
+    //   if ((s == "<int>" || is_integral (s) || is_alt_integral (s)))
+    //     return -r / 2;
+    // }
     return 0;
   }
   metric ex;
@@ -926,8 +930,12 @@ SI
 unicode_font_rep::get_right_correction (string s) {
   if (math_type == MATH_TYPE_OPENTYPE) {
     SI r= 0;
-    get_ot_italic_correction (s, false, r);
-    return r;
+    if (get_ot_italic_correction (s, false, r)) {
+      if ((s == "<int>" || is_integral (s) || is_alt_integral (s)))
+        return r / 2;
+      else return r;
+    }
+    return 0;
   }
   metric ex;
   get_extents (s, ex);
@@ -939,6 +947,7 @@ unicode_font_rep::get_right_correction (string s) {
 
 SI
 unicode_font_rep::get_lsub_correction (string s) {
+  if (math_type == MATH_TYPE_OPENTYPE) return 0;
   SI r= -get_left_correction (s) + global_lsub_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
     ;
@@ -950,6 +959,7 @@ unicode_font_rep::get_lsub_correction (string s) {
 
 SI
 unicode_font_rep::get_lsup_correction (string s) {
+  if (math_type == MATH_TYPE_OPENTYPE) return 0;
   SI r= global_lsup_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
     r+= get_right_correction (s);
@@ -967,7 +977,7 @@ unicode_font_rep::get_rsub_correction (string s) {
     // for integral signs
     if ((s == "<int>" || is_integral (s) || is_alt_integral (s)) &&
         get_ot_italic_correction (s, false, r))
-      return -2 * r / 3;
+      return -r / 2;
 
     // height is wrong
     array<SI> h;
@@ -988,14 +998,15 @@ unicode_font_rep::get_rsub_correction (string s) {
 
 SI
 unicode_font_rep::get_rsup_correction (string s) {
-  // cout << "Check " << s << ", " << rsup_correct[s] << ", " << this->res_name
+  // cout << "Check " << s << ", " << rsup_correct[s] << ", " <<
+  // this->res_name
   // << LF;
   // FIXME: logic is wrong
   if (math_type == MATH_TYPE_OPENTYPE) {
     SI r= 0;
 
     if (get_ot_italic_correction (s, false, r)) {
-      if (s == "<int>" && is_integral (s) || is_alt_integral (s)) return r / 3;
+      if (s == "<int>" && is_integral (s) || is_alt_integral (s)) return r / 2;
       else return r;
     }
 
@@ -1082,6 +1093,20 @@ unicode_font_rep::metric_to_design_unit (SI m) {
     em= ex->x2 - ex->x1;
   }
   return (int) ((m * units_of_m) / em);
+}
+
+int
+unicode_font_rep::script (int level) {
+  if (math_type != MATH_TYPE_OPENTYPE) return font_rep::script (level);
+  else {
+    cout << "Script level: " << level << LF;
+    level = min (level, 2);
+    level = max (level, 0);
+    if (level == 0) return size;
+    else if (level == 1) return (int) size * mathface->mathtable->constants_table[scriptPercentScaleDown] / 100;
+    else if (level == 2) return (int) size * mathface->mathtable->constants_table[scriptScriptPercentScaleDown] / 100;
+    else return 0;
+  }
 }
 
 inline int
