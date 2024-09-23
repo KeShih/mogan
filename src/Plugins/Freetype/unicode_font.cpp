@@ -917,11 +917,6 @@ unicode_font_rep::get_right_slope (string s) {
 SI
 unicode_font_rep::get_left_correction (string s) {
   if (math_type == MATH_TYPE_OPENTYPE) {
-    // SI r= 0;
-    // if (get_ot_italic_correction (s, true, r)) {
-    //   if ((s == "<int>" || is_integral (s) || is_alt_integral (s)))
-    //     return -r / 2;
-    // }
     return 0;
   }
   metric ex;
@@ -979,18 +974,22 @@ SI
 unicode_font_rep::get_rsub_correction (string s) {
   // FIXME: logic is wrong
   if (math_type == MATH_TYPE_OPENTYPE) {
-    SI r= 0;
+    SI r1= 0, r2= 0;
+    
     // for integral signs
-    if ((s == "<int>" || is_integral (s) || is_alt_integral (s)) &&
-        get_ot_italic_correction (s, false, r))
-      return -r / 2;
+    if (get_ot_italic_correction (s, false, r1)) {
+      if (s == "<int>" || is_integral (s) || is_alt_integral (s)){
+        r1 = r1/2;
+      } else {
+        r1 = 0;
+      }
+    }
 
-    // height is wrong
     array<SI> h;
-    h << ysub_lo_base;
-    h << (int) mathtable->constants_table[subscriptTopMax];
-    if (get_ot_kerning (s, h, false, false, r)) return r;
-    return 0;
+    h << -design_unit_to_metric(mathtable->constants_table[subscriptBaselineDropMin]);
+    get_ot_kerning (s, h, false, false, r2);
+
+    return -r1+r2;
   }
   SI r= global_rsub_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
@@ -1009,18 +1008,19 @@ unicode_font_rep::get_rsup_correction (string s) {
   // << LF;
   // FIXME: logic is wrong
   if (math_type == MATH_TYPE_OPENTYPE) {
-    SI r= 0;
+    SI r1= 0, r2= 0;
 
-    if (get_ot_italic_correction (s, false, r)) {
-      if (s == "<int>" && is_integral (s) || is_alt_integral (s)) return r / 2;
-      else return r;
+    if (get_ot_italic_correction (s, false, r1)) {
+      if (s == "<int>" && is_integral (s) || is_alt_integral (s)) {
+        r1= r1 / 2;
+      }
     }
 
     array<SI> h;
-    h << ysup_lo_base;
-    h << (int) mathtable->constants_table[superscriptBottomMin];
-    if (get_ot_kerning (s, h, true, false, r)) return r;
-    return 0;
+    h << design_unit_to_metric(mathtable->constants_table[superscriptBaselineDropMax]);
+    get_ot_kerning (s, h, true, false, r2);
+  
+    return r1 + r2;
   }
   SI r= get_right_correction (s) + global_rsup_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
