@@ -94,6 +94,8 @@ font_rep::copy_math_pars (font fn) {
   wfn         = fn->wfn;
   wline       = fn->wline;
   wquad       = fn->wquad;
+  script_scale= fn->script_scale;
+  size_cache  = fn->size_cache;
 }
 
 void
@@ -561,9 +563,14 @@ script (int sz, int level) {
   return sz;
 }
 
-int 
-font_rep::script (int level) {
-  return ::script (size, level);
+int
+font_rep::script (int sz, int level) {
+  if (level < 0) level= 0;
+  if (level > 2) level= 2;
+  if (math_type == MATH_TYPE_OPENTYPE) {
+    return sz * script_scale[level] / 100;
+  }
+  return ::script (sz, level);
 }
 
 string

@@ -19,6 +19,7 @@
 #include "cork.hpp"
 #include "font.hpp"
 #include "freetype/config/integer-types.h"
+#include "hashmap.hpp"
 #include "iterator.hpp"
 #include "minmax.hpp"
 #include "observer.hpp"
@@ -147,7 +148,8 @@ struct unicode_font_rep : font_rep {
 
   hashmap<string, int> native; // additional native (non unicode) characters
 
-  tt_face mathface;
+  tt_face      mathface;
+  ot_mathtable mathtable;
 
   unicode_font_rep (string name, string family, int size, int hdpi, int vdpi);
   void tex_gyre_operators ();
@@ -173,13 +175,13 @@ struct unicode_font_rep : font_rep {
   SI           get_rsub_correction (string s);
   SI           get_rsup_correction (string s);
   SI           get_wide_correction (string s, int mode);
+  int          script (int sz, int level);
   bool         get_ot_italic_correction (string s, bool left, SI& right);
   bool         get_ot_kerning (string s, array<SI> height, bool top, bool left,
                                SI& kerning);
   SI           design_unit_to_metric (int du);
   int          metric_to_design_unit (SI m);
   unsigned int get_glyphID (string s);
-  int          script (int) override;
 };
 
 /******************************************************************************
@@ -450,8 +452,12 @@ unicode_font_rep::unicode_font_rep (string name, string family2, int size2,
     // try to get OpenType math table
     tt_face mathface= tt_face (family);
     if (!is_nil (mathface->mathtable)) {
-      this->mathface= mathface;
-      math_type     = MATH_TYPE_OPENTYPE;
+      this->mathface = mathface;
+      this->mathtable= mathface->mathtable;
+      math_type      = MATH_TYPE_OPENTYPE;
+      script_scale << 100;
+      script_scale << mathtable->constants_table[scriptPercentScaleDown];
+      script_scale << mathtable->constants_table[scriptScriptPercentScaleDown];
     }
   }
 }
@@ -982,7 +988,7 @@ unicode_font_rep::get_rsub_correction (string s) {
     // height is wrong
     array<SI> h;
     h << ysub_lo_base;
-    h << (int) mathface->mathtable->constants_table[subscriptTopMax];
+    h << (int) mathtable->constants_table[subscriptTopMax];
     if (get_ot_kerning (s, h, false, false, r)) return r;
     return 0;
   }
@@ -1012,7 +1018,7 @@ unicode_font_rep::get_rsup_correction (string s) {
 
     array<SI> h;
     h << ysup_lo_base;
-    h << (int) mathface->mathtable->constants_table[superscriptBottomMin];
+    h << (int) mathtable->constants_table[superscriptBottomMin];
     if (get_ot_kerning (s, h, true, false, r)) return r;
     return 0;
   }
@@ -1095,18 +1101,37 @@ unicode_font_rep::metric_to_design_unit (SI m) {
   return (int) ((m * units_of_m) / em);
 }
 
+// should be called only for OpenType math font
 int
-unicode_font_rep::script (int level) {
-  if (math_type != MATH_TYPE_OPENTYPE) return font_rep::script (level);
-  else {
-    cout << "Script level: " << level << LF;
-    level = min (level, 2);
-    level = max (level, 0);
-    if (level == 0) return size;
-    else if (level == 1) return (int) size * mathface->mathtable->constants_table[scriptPercentScaleDown] / 100;
-    else if (level == 2) return (int) size * mathface->mathtable->constants_table[scriptScriptPercentScaleDown] / 100;
-    else return 0;
-  }
+unicode_font_rep::script (int sz, int level) {
+  exit (1);
+  // if (math_type == MATH_TYPE_OPENTYPE) {
+
+  //   // static
+
+  //   if (cache->contains ({sz, level})) {
+  //     cout << "get script from cache " << sz << ", " << level << LF;
+  //     return cache[{sz, level}];
+  //   }
+  //   cout << "get script from opentype " << sz << ", " << level << LF;
+  //   level= min (level, 2);
+  //   level= max (level, 0);
+  //   if (level == 0) {
+  //     cache({sz, level}) = sz;
+  //   }
+  //   else if (level == 1) {
+  //     cache({sz, level})= sz *
+  //     mathtable->constants_table[scriptPercentScaleDown] /
+  //                        100;
+  //   }
+  //   else if (level == 2) {
+  //     cache({sz, level})= sz *
+  //     mathtable->constants_table[scriptScriptPercentScaleDown] /
+  //                        100;
+  //   }
+  //   return cache[{sz, level}];
+  // }
+  // return font_rep::script (sz, level);
 }
 
 inline int
@@ -1126,7 +1151,7 @@ unicode_font_rep::get_glyphID (string s) {
 bool
 unicode_font_rep::get_ot_italic_correction (string s, bool left, SI& r) {
   if (math_type != MATH_TYPE_OPENTYPE || N (s) == 0) return false;
-  auto italics_correction= mathface->mathtable->italics_correction;
+  auto italics_correction= mathtable->italics_correction;
   cout << "Checking italic correction for " << s << LF;
   int start= 0, end= N (s);
   if (left) {
@@ -1170,13 +1195,13 @@ unicode_font_rep::get_ot_kerning (string s, array<SI> heights, bool top,
 
   unsigned int glyphID= get_glyphID (ss);
 
-  if (!mathface->mathtable->has_kerning (glyphID, top, left)) return false;
+  if (!mathtable->has_kerning (glyphID, top, left)) return false;
 
   array<int> kerning_units;
 
   for (SI h : heights)
-    kerning_units << mathface->mathtable->get_kerning (
-        glyphID, metric_to_design_unit (h), top, left);
+    kerning_units << mathtable->get_kerning (glyphID, metric_to_design_unit (h),
+                                             top, left);
 
   // pick one with the smallest height (absolute value)
   int kerning_unit= INT_MAX;

@@ -74,6 +74,10 @@ struct font_rep : rep<font> {
   SI ysup_hi_lim;  // upper limit for supscripts
   SI yshift;       // vertical script shift inside fractions
 
+  // only for opentype math font
+  array<int>        script_scale; /* scale percentage */
+  array<array<int>> size_cache;
+
   SI wpt;   // width of one point in font
   SI hpt;   // height of one point in font (usually wpt)
   SI wfn;   // wpt * design size in points
@@ -103,7 +107,7 @@ struct font_rep : rep<font> {
   font_rep (string name, font fn);
   void copy_math_pars (font fn);
 
-  virtual int script (int level);
+  virtual int script (int sz, int level); // only for opentype
 
   virtual bool supports (string c)               = 0;
   virtual void get_extents (string s, metric& ex)= 0;
