@@ -175,7 +175,7 @@ struct MathConstantsTable {
   // make sure i is a meaningful index in MathConstantRecordEnum
   int operator[] (int i) {
     if (i < MathConstantRecordEnum::otmathConstantsRecordsEnd)
-      return records[i];
+      return records[i].value;
     switch (i) {
     case MathConstantRecordEnum::scriptPercentScaleDown:
       return scriptPercentScaleDown;

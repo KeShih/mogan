@@ -23,6 +23,7 @@
 #include "iterator.hpp"
 #include "minmax.hpp"
 #include "observer.hpp"
+#include "point.hpp"
 
 #include <climits>
 #include <lolly/data/numeral.hpp>
@@ -454,10 +455,46 @@ unicode_font_rep::unicode_font_rep (string name, string family2, int size2,
     if (!is_nil (mathface->mathtable)) {
       this->mathface = mathface;
       this->mathtable= mathface->mathtable;
-      math_type      = MATH_TYPE_OPENTYPE;
+
+      math_type= MATH_TYPE_OPENTYPE;
+      cout << "math_type= " << math_type << "\n";
       script_scale << 100;
       script_scale << mathtable->constants_table[scriptPercentScaleDown];
       script_scale << mathtable->constants_table[scriptScriptPercentScaleDown];
+      cout << "script_scale= " << script_scale << "\n";
+
+      // ysub_lo_base=
+      // -design_unit_to_metric(mathtable->constants_table[subscriptShiftDown]);
+      // ysub_hi_lim =
+      // design_unit_to_metric(mathtable->constants_table[subscriptTopMax]);
+
+      // ysup_lo_base=
+      // design_unit_to_metric(mathtable->constants_table[superscriptShiftUp ]);
+      // ysup_lo_lim =
+      // design_unit_to_metric(mathtable->constants_table[superscriptBottomMin]);
+      // ysup_hi_lim =
+      // design_unit_to_metric(mathtable->constants_table[superscriptBaselineDropMax]);
+
+      // yfrac = design_unit_to_metric(mathtable->constants_table[axisHeight]) ;
+
+      // yshift      =
+      // design_unit_to_metric(mathtable->constants_table[superscriptShiftUpCramped]);
+
+      upperLimitGapMin= design_unit_to_metric (
+          mathtable->constants_table[::upperLimitGapMin]);
+      lowerLimitGapMin= design_unit_to_metric (
+          mathtable->constants_table[::lowerLimitGapMin]);
+      upperLimitBaselineRiseMin= design_unit_to_metric (
+          mathtable->constants_table[::upperLimitBaselineRiseMin]);
+      lowerLimitBaselineDropMin= design_unit_to_metric (
+          mathtable->constants_table[::lowerLimitBaselineDropMin]);
+
+      cout << "upperLimitGapMin= " << upperLimitGapMin << "\n";
+      cout << "lowerLimitGapMin= " << lowerLimitGapMin << "\n";
+      cout << "upperLimitBaselineRiseMin= " << upperLimitBaselineRiseMin << "\n";
+      cout << "lowerLimitBaselineDropMin= " << lowerLimitBaselineDropMin << "\n";
+
+
     }
   }
 }
@@ -975,21 +1012,23 @@ unicode_font_rep::get_rsub_correction (string s) {
   // FIXME: logic is wrong
   if (math_type == MATH_TYPE_OPENTYPE) {
     SI r1= 0, r2= 0;
-    
+
     // for integral signs
     if (get_ot_italic_correction (s, false, r1)) {
-      if (s == "<int>" || is_integral (s) || is_alt_integral (s)){
-        r1 = r1/2;
-      } else {
-        r1 = 0;
+      if (s == "<int>" || is_integral (s) || is_alt_integral (s)) {
+        r1= r1 / 2;
+      }
+      else {
+        r1= 0;
       }
     }
 
     array<SI> h;
-    h << -design_unit_to_metric(mathtable->constants_table[subscriptBaselineDropMin]);
+    h << -design_unit_to_metric (
+        mathtable->constants_table[subscriptBaselineDropMin]);
     get_ot_kerning (s, h, false, false, r2);
 
-    return -r1+r2;
+    return -r1 + r2;
   }
   SI r= global_rsub_correct;
   if (math_type == MATH_TYPE_STIX && (is_integral (s) || is_alt_integral (s)))
@@ -1017,9 +1056,10 @@ unicode_font_rep::get_rsup_correction (string s) {
     }
 
     array<SI> h;
-    h << design_unit_to_metric(mathtable->constants_table[superscriptBaselineDropMax]);
+    h << design_unit_to_metric (
+        mathtable->constants_table[superscriptBaselineDropMax]);
     get_ot_kerning (s, h, true, false, r2);
-  
+
     return r1 + r2;
   }
   SI r= get_right_correction (s) + global_rsup_correct;

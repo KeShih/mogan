@@ -15,6 +15,7 @@
 #include "tm_file.hpp"
 #include "tree_helper.hpp"
 #include "tt_file.hpp"
+#include <cstdlib>
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>

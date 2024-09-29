@@ -590,6 +590,11 @@ smart_font_rep::smart_font_rep (string name, font base_fn, font err_fn,
   fn[SUBFONT_MAIN] = adjust_subfont (base_fn);
   fn[SUBFONT_ERROR]= adjust_subfont (err_fn);
   this->copy_math_pars (base_fn);
+
+  if (base_fn->math_type == MATH_TYPE_OPENTYPE) {
+    init_unicode_substitution();
+  }
+
   if (shape == "mathitalic" || shape == "mathupright" || shape == "mathshape") {
     if (is_math_family (mfam)) {
       rshape= "right";
@@ -692,7 +697,10 @@ rewrite_letters (string s) {
     int start= i;
     tm_char_forwards (s, i);
     string ss= s (start, i);
-    if (substitution_char->contains (ss)) r << substitution_char[ss];
+    if (substitution_char->contains (ss)) {
+      r << substitution_char[ss];
+      cout << "Substitute " << ss << " by " << substitution_char[ss] << "\n";
+    }
     else r << ss;
   }
   return r;
@@ -741,6 +749,7 @@ smart_font_rep::advance (string s, int& pos, string& r, int& nr) {
   int                   count= 0;
   int                   start= pos;
   nr                         = -1;
+  cout << "Adcance:" << s << " " << pos << " " << r << " " << nr << res_name << "\n";
   while (pos < N (s)) {
     if (s[pos] != '<') {
       int c= (int) (unsigned char) s[pos];
@@ -1149,7 +1158,7 @@ smart_font_rep::resolve (string c) {
 
   string sf= substitute_math_letter (c, math_kind);
   if (sf != "") {
-    // cout << "Found " << c << " in " << sf << " (math-letter)\n";
+    cout << "Found " << c << " in " << sf << " (math-letter)\n";
     return sm->add_char (tuple (sf), c);
   }
 
@@ -1703,6 +1712,7 @@ font
 apply_effects (font fn, string effects) {
   if (N (effects) == 0) return fn;
   array<string> a= trimmed_tokenize (effects, ",");
+  cout << "Effects: " << effects << "\n";
   for (int i= 0; i < N (a); i++) {
     array<string> b= trimmed_tokenize (a[i], "=");
     if (N (b) == 2) {

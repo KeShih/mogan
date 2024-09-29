@@ -77,6 +77,8 @@ struct font_rep : rep<font> {
   // only for opentype math font
   array<int>        script_scale; /* scale percentage */
   array<array<int>> size_cache;
+  SI upperLimitGapMin,upperLimitBaselineRiseMin,lowerLimitGapMin,lowerLimitBaselineDropMin;
+
 
   SI wpt;   // width of one point in font
   SI hpt;   // height of one point in font (usually wpt)

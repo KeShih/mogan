@@ -12,6 +12,7 @@
 #include "Boxes/Composite/italic_correct.hpp"
 #include "Boxes/composite.hpp"
 #include "Boxes/construct.hpp"
+#include "font.hpp"
 
 /******************************************************************************
  * subroutine for scripts
@@ -86,11 +87,24 @@ lim_box_rep::lim_box_rep (path ip, box r2, box lo, box hi, font fn2, bool gl)
   type= 0;
   if (!is_nil (lo)) type+= 1;
   if (!is_nil (hi)) type+= 2;
+
+  // if(fn->math_type == MATH_TYPE_OPENTYPE) {
+  //   sep_lo = fn->lowerLimitGapMin;
+  //   sep_hi = fn->upperLimitGapMin;
+  // }
+  
   if (!is_nil (lo)) {
     SI top= max (lo->y2, fn->y2 * script (fn->size, 1) / fn->size) + sep_lo;
     Y     = ref->y1;
     X     = ((SI) (ref->right_slope () * (Y + top - lo->y1))) +
        ((ref->x1 + ref->x2) >> 1);
+
+    if(fn->math_type == MATH_TYPE_OPENTYPE) {
+      top = lo->y4 + fn->lowerLimitGapMin;
+      top = max(top,fn->upperLimitBaselineRiseMin);
+      cout << "lowerLimitGapMin: " << fn->lowerLimitGapMin << LF;
+    }
+
     insert (lo, X - (lo->x2 >> 1), Y - top);
     italic_correct (lo);
   }
@@ -99,6 +113,19 @@ lim_box_rep::lim_box_rep (path ip, box r2, box lo, box hi, font fn2, bool gl)
     Y     = ref->y2;
     X     = ((SI) (ref->right_slope () * (Y + hi->y2 - bot))) +
        ((ref->x1 + ref->x2) >> 1);
+
+    cout << "hi->x1, hi->y1: " << hi->x1 << ", " << hi->y1 << LF;
+    cout << "hi->x2, hi->y2: " << hi->x2 << ", " << hi->y2 << LF;
+    cout << "hi->x3, hi->y3: " << hi->x3 << ", " << hi->y3 << LF;
+    cout << "hi->x4, hi->y4: " << hi->x4 << ", " << hi->y4 << LF;
+
+    if (fn->math_type == MATH_TYPE_OPENTYPE) {
+      bot = hi->y3 - fn->upperLimitGapMin;
+      bot = min(bot, -fn->upperLimitBaselineRiseMin);
+      cout << "upperLimitGapMin: " << fn->upperLimitGapMin << LF;
+      cout << "upperLimitBaselineRiseMin: " << fn->upperLimitBaselineRiseMin << LF;
+    }
+
     insert (hi, X - (hi->x2 >> 1), Y - bot);
     italic_correct (hi);
   }

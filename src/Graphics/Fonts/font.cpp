@@ -94,8 +94,14 @@ font_rep::copy_math_pars (font fn) {
   wfn         = fn->wfn;
   wline       = fn->wline;
   wquad       = fn->wquad;
-  script_scale= fn->script_scale;
-  size_cache  = fn->size_cache;
+  if (fn->math_type == MATH_TYPE_OPENTYPE) {
+    script_scale             = fn->script_scale;
+    size_cache               = fn->size_cache;
+    upperLimitBaselineRiseMin= fn->upperLimitBaselineRiseMin;
+    upperLimitGapMin         = fn->upperLimitGapMin;
+    lowerLimitBaselineDropMin= fn->lowerLimitBaselineDropMin;
+    lowerLimitGapMin         = fn->lowerLimitGapMin;
+  }
 }
 
 void
