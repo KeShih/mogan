@@ -149,8 +149,8 @@ struct unicode_font_rep : font_rep {
 
   hashmap<string, int> native; // additional native (non unicode) characters
 
-  tt_face      mathface;
-  ot_mathtable mathtable;
+  tt_face      math_face;
+  ot_mathtable math_table;
 
   unicode_font_rep (string name, string family, int size, int hdpi, int vdpi);
   void tex_gyre_operators ();
@@ -192,7 +192,7 @@ struct unicode_font_rep : font_rep {
 unicode_font_rep::unicode_font_rep (string name, string family2, int size2,
                                     int hdpi2, int vdpi2)
     : font_rep (name), family (family2), hdpi (hdpi2), vdpi (vdpi2), ligs (0),
-      native (0), mathface (nullptr) {
+      native (0), math_face (nullptr) {
   type= FONT_TYPE_UNICODE;
   size= size2;
   fnm = tt_font_metric (family, size, std_dpi, (std_dpi * vdpi) / hdpi);
@@ -451,43 +451,43 @@ unicode_font_rep::unicode_font_rep (string name, string family2, int size2,
   }
   else {
     // try to get OpenType math table
-    tt_face mathface= tt_face (family);
-    if (!is_nil (mathface->mathtable)) {
-      this->mathface = mathface;
-      this->mathtable= mathface->mathtable;
+    tt_face math_face= tt_face (family);
+    if (!is_nil (math_face->math_table)) {
+      this->math_face = math_face;
+      this->math_table= math_face->math_table;
 
       math_type= MATH_TYPE_OPENTYPE;
       cout << "math_type= " << math_type << "\n";
       script_scale << 100;
-      script_scale << mathtable->constants_table[scriptPercentScaleDown];
-      script_scale << mathtable->constants_table[scriptScriptPercentScaleDown];
+      script_scale << math_table->constants_table[scriptPercentScaleDown];
+      script_scale << math_table->constants_table[scriptScriptPercentScaleDown];
       cout << "script_scale= " << script_scale << "\n";
 
       // ysub_lo_base=
-      // -design_unit_to_metric(mathtable->constants_table[subscriptShiftDown]);
+      // -design_unit_to_metric(math_table->constants_table[subscriptShiftDown]);
       // ysub_hi_lim =
-      // design_unit_to_metric(mathtable->constants_table[subscriptTopMax]);
+      // design_unit_to_metric(math_table->constants_table[subscriptTopMax]);
 
       // ysup_lo_base=
-      // design_unit_to_metric(mathtable->constants_table[superscriptShiftUp ]);
+      // design_unit_to_metric(math_table->constants_table[superscriptShiftUp ]);
       // ysup_lo_lim =
-      // design_unit_to_metric(mathtable->constants_table[superscriptBottomMin]);
+      // design_unit_to_metric(math_table->constants_table[superscriptBottomMin]);
       // ysup_hi_lim =
-      // design_unit_to_metric(mathtable->constants_table[superscriptBaselineDropMax]);
+      // design_unit_to_metric(math_table->constants_table[superscriptBaselineDropMax]);
 
-      // yfrac = design_unit_to_metric(mathtable->constants_table[axisHeight]) ;
+      // yfrac = design_unit_to_metric(math_table->constants_table[axisHeight]) ;
 
       // yshift      =
-      // design_unit_to_metric(mathtable->constants_table[superscriptShiftUpCramped]);
+      // design_unit_to_metric(math_table->constants_table[superscriptShiftUpCramped]);
 
       upperLimitGapMin= design_unit_to_metric (
-          mathtable->constants_table[::upperLimitGapMin]);
+          math_table->constants_table[::upperLimitGapMin]);
       lowerLimitGapMin= design_unit_to_metric (
-          mathtable->constants_table[::lowerLimitGapMin]);
+          math_table->constants_table[::lowerLimitGapMin]);
       upperLimitBaselineRiseMin= design_unit_to_metric (
-          mathtable->constants_table[::upperLimitBaselineRiseMin]);
+          math_table->constants_table[::upperLimitBaselineRiseMin]);
       lowerLimitBaselineDropMin= design_unit_to_metric (
-          mathtable->constants_table[::lowerLimitBaselineDropMin]);
+          math_table->constants_table[::lowerLimitBaselineDropMin]);
 
       cout << "upperLimitGapMin= " << upperLimitGapMin << "\n";
       cout << "lowerLimitGapMin= " << lowerLimitGapMin << "\n";
@@ -1025,7 +1025,7 @@ unicode_font_rep::get_rsub_correction (string s) {
 
     array<SI> h;
     h << -design_unit_to_metric (
-        mathtable->constants_table[subscriptBaselineDropMin]);
+        math_table->constants_table[subscriptBaselineDropMin]);
     get_ot_kerning (s, h, false, false, r2);
 
     return -r1 + r2;
@@ -1057,7 +1057,7 @@ unicode_font_rep::get_rsup_correction (string s) {
 
     array<SI> h;
     h << design_unit_to_metric (
-        mathtable->constants_table[superscriptBaselineDropMax]);
+        math_table->constants_table[superscriptBaselineDropMax]);
     get_ot_kerning (s, h, true, false, r2);
 
     return r1 + r2;
@@ -1111,9 +1111,9 @@ unicode_font_rep::design_unit_to_metric (int du) {
   static SI  em        = 0;
   if (units_of_m == 0) {
     // get the design units of the width of 'm'
-    FT_UInt glyph_index= FT_Get_Char_Index (mathface->ft_face, 'm');
-    FT_Load_Glyph (mathface->ft_face, glyph_index, FT_LOAD_NO_SCALE);
-    units_of_m= mathface->ft_face->glyph->metrics.horiAdvance;
+    FT_UInt glyph_index= FT_Get_Char_Index (math_face->ft_face, 'm');
+    FT_Load_Glyph (math_face->ft_face, glyph_index, FT_LOAD_NO_SCALE);
+    units_of_m= math_face->ft_face->glyph->metrics.horiAdvance;
 
     // get the width of the character 'm'
     metric ex;
@@ -1129,9 +1129,9 @@ unicode_font_rep::metric_to_design_unit (SI m) {
   static SI  em        = 0;
   if (units_of_m == 0) {
     // get the units of the character 'm'
-    FT_UInt glyph_index= FT_Get_Char_Index (mathface->ft_face, 'm');
-    FT_Load_Glyph (mathface->ft_face, glyph_index, FT_LOAD_NO_SCALE);
-    units_of_m= mathface->ft_face->glyph->metrics.horiAdvance;
+    FT_UInt glyph_index= FT_Get_Char_Index (math_face->ft_face, 'm');
+    FT_Load_Glyph (math_face->ft_face, glyph_index, FT_LOAD_NO_SCALE);
+    units_of_m= math_face->ft_face->glyph->metrics.horiAdvance;
 
     // get the width of the character 'm'
     metric ex;
@@ -1161,12 +1161,12 @@ unicode_font_rep::script (int sz, int level) {
   //   }
   //   else if (level == 1) {
   //     cache({sz, level})= sz *
-  //     mathtable->constants_table[scriptPercentScaleDown] /
+  //     math_table->constants_table[scriptPercentScaleDown] /
   //                        100;
   //   }
   //   else if (level == 2) {
   //     cache({sz, level})= sz *
-  //     mathtable->constants_table[scriptScriptPercentScaleDown] /
+  //     math_table->constants_table[scriptScriptPercentScaleDown] /
   //                        100;
   //   }
   //   return cache[{sz, level}];
@@ -1185,13 +1185,13 @@ unicode_font_rep::get_glyphID (string s) {
   font_metric fm;
   font_glyphs fg;
   int         index= index_glyph (s, fm, fg);
-  return decode_index (mathface->ft_face, index);
+  return decode_index (math_face->ft_face, index);
 }
 
 bool
 unicode_font_rep::get_ot_italic_correction (string s, bool left, SI& r) {
   if (math_type != MATH_TYPE_OPENTYPE || N (s) == 0) return false;
-  auto italics_correction= mathtable->italics_correction;
+  auto italics_correction= math_table->italics_correction;
   cout << "Checking italic correction for " << s << LF;
   int start= 0, end= N (s);
   if (left) {
@@ -1235,12 +1235,12 @@ unicode_font_rep::get_ot_kerning (string s, array<SI> heights, bool top,
 
   unsigned int glyphID= get_glyphID (ss);
 
-  if (!mathtable->has_kerning (glyphID, top, left)) return false;
+  if (!math_table->has_kerning (glyphID, top, left)) return false;
 
   array<int> kerning_units;
 
   for (SI h : heights)
-    kerning_units << mathtable->get_kerning (glyphID, metric_to_design_unit (h),
+    kerning_units << math_table->get_kerning (glyphID, metric_to_design_unit (h),
                                              top, left);
 
   // pick one with the smallest height (absolute value)

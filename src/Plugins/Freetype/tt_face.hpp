@@ -21,7 +21,7 @@ RESOURCE (tt_face);
 struct tt_face_rep : rep<tt_face> {
   bool         bad_face;
   FT_Face      ft_face;
-  ot_mathtable mathtable;
+  ot_mathtable math_table;
   tt_face_rep (string name);
 };
 

@@ -64,9 +64,9 @@ tt_face_rep::tt_face_rep (string name) : rep<tt_face> (name) {
   if (suffix (u) == "ttf" || suffix (u) == "otf") {
     string buf;
     if (!load_string (u, buf, false)) {
-      mathtable= parse_mathtable (buf);
+      math_table= parse_mathtable (buf);
     }
-    if (!is_nil (mathtable) && DEBUG_STD) {
+    if (!is_nil (math_table) && DEBUG_STD) {
       debug_fonts << "Math table loaded for " << name << "\n";
     }
   }
